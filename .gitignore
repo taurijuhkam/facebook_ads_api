@@ -1,1 +1,4 @@
 conf.py
+__pycache__/
+facebook_ads.sublime-project
+facebook_ads.sublime-workspace
