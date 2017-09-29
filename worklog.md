@@ -17,4 +17,8 @@
 - Might need to write a lookup-campaign_id-by-campaing-name function for easier access to existing campaigns
 - It is not exactly easy to find something in Facebook developer documentation. Spent a good time trying to find what are the valid options for Campaign.Field.objective. Apparently you can set it by
 Campaign.Field.objective = getattr(Campaign.Objective, '<OBJECTIVE NAME>') and do dir(Campaign.Objective) to view all possibilities. Common ones are e.g. conversions, link_clicks, reach
-- 
+- Confirmation for correct account implemented
+- The mess with Campaign.Field.objective seems to repeat with every field. AdSet.Field.billing_event
+- In targeting, Countries are determined by country codes
+
+The ad_utils_module for reference can be found at https://github.com/kevinqz/facebook-marketing-api-first-steps/blob/Facebook-Marketing-API-First-Steps/examples_updated/ad_creation_utils.py

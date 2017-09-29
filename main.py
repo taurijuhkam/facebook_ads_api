@@ -11,11 +11,18 @@ from facebookads import FacebookSession
 from facebookads.adobjects.adaccount import AdAccount
 from facebookads.adobjects.adset import AdSet
 from facebookads.adobjects.campaign import Campaign
+from facebookads.adobjects.targeting import Targeting
+from facebookads.adobjects.ad import Ad
+from facebookads.adobjects.adimage import AdImage
+from facebookads.adobjects.adcreative import AdCreative
+from facebookads.adobjects.targetinggeolocation import TargetingGeoLocation
+from example import example_dict
 
 session = FacebookSession(conf.MY_APP_ID, conf.MY_APP_SECRET, conf.MY_ACCESS_TOKEN)
 api = FacebookAdsApi(session)
 ACCOUNT = 'act_' + conf.AD_ACCOUNT_ID
 FacebookAdsApi.set_default_api(api)
+
 
 def get_image_files():
     """Returns a list of paths of all the images in the current directory
@@ -27,16 +34,6 @@ def get_image_files():
     images = [img for img in os.listdir(current_dir) if img[-3:] in ['jpg', 'png']]
     image_paths = [os.path.join(current_dir, img) for img in images]
     return image_paths
-
-example_dict = {
-    'daily_budget': 500,  # 5.00 per day
-    'lifetime_budget': '',
-    'end_time': '',
-    'campaign_id': '',
-    'campaign_name': 'Test Campaign 02',
-    'objective': 'link_clicks',
-    # 'status': '',
-}
 
 
 def validate(campaign_data):
@@ -52,13 +49,20 @@ def validate(campaign_data):
     if not campaign_data.get('daily_budget'):
         if not campaign_data.get('lifetime_budget'):
             raise TypeError(
-            'Either daily_budget or lifetime_budget must be defined'
+            'Either daily_budget or lifetime_budget must be defined!'
             )
         elif not campaign_data.get('end_time'):
             raise TypeError(
-            'When using lifetime_budget, end_time must be defined'
+            'When using lifetime_budget, end_time must be defined!'
             )
-
+        elif not campaign_data.get('campaign_name'):
+            raise TypeError(
+            'Campaign name cannot be empty!'
+            )
+        elif not campaign_data.get('ad_set_name'):
+            raise TypeError(
+            'Ad set name cannot be empty!'
+            )
 
 def create_campaign(campaign_data, account):
     """Creates a campaign, by default in paused status
@@ -83,10 +87,57 @@ def create_campaign(campaign_data, account):
                                                   campaign_data.get('status', 'paused'))
         campaign.remote_create()
 
-        # ??? What and why?
-        campaign = campaign[AdSet.Field.id]
+        # Returns campaign id, it seems. Why do it via AdSet, dunno
+        campaign_id = campaign[AdSet.Field.id]
 
-    return campaign
+    return campaign_id
+
+def create_ad_set(campaign_data, account, campaign_id):
+    """Creates an ad set and targeting for the campaign.
+    
+    Args:
+        campaign_data (dict): A dict with campaign data, parsed from JSON
+        account (str): Account where to upload the campaign
+        campaign_id (str): Campaign id where to upload the Ad set
+    """
+    # Setup Ad set
+    ad_set = AdSet(parent_id=account)
+    ad_set[AdSet.Field.campaign_id] = campaign_id
+    ad_set[AdSet.Field.name] = campaign_data.get('ad_set_name')
+    ad_set[AdSet.Field.optimization_goal] = getattr(AdSet.OptimizationGoal,
+                                                    campaign_data.get('optimization_goal'))
+    ad_set[AdSet.Field.billing_event] = getattr(AdSet.BillingEvent,
+                                                campaign_data.get('billing_event'))
+    ad_set[AdSet.Field.is_autobid] = campaign_data.get('automatic_bidding')
+
+    if campaign_data.get('daily_budget'):
+        ad_set[AdSet.Field.daily_budget] = campaign_data.get('daily_budget')
+    else:
+        ad_set[AdSet.Field.lifetime_budget] = campaign_data.get('lifetime_budget')
+    if campaign_data.get('end_time'):
+        ad_set[AdSet.Field.end_time] = campaign_data.get('end_time')
+    if campaign_data.get('start_time'):
+        ad_set[AdSet.Field.start_time] = campaign_data.get('start_time')
+
+    # Setup Targeting - maybe move to separate function
+    # targeting is a dict!
+    targeting = {}
+    targeting[Targeting.Field.geo_locations] = {
+        'countries': [campaign_data.get('country')]
+    }
+    if campaign_data.get('max_age'):
+        targeting[Targeting.Field.age_max] = campaign_data.get('max_age')
+    if campaign_data.get('min_age'):
+        targeting[Targeting.Field.age_min] = campaign_data.get('min_age')
+
+    #TODO: Language, region, Placements?
+    #
+
+    # Attach targeting to Ad set
+    ad_set[AdSet.Field.targeting] = targeting
+
+    ad_set.remote_create()
+
 
 def test_campaign_upload(campaign_data, account):
     """
@@ -108,12 +159,18 @@ def test_campaign_upload(campaign_data, account):
         print('Aborted campaign upload')
         return
 
+    print("\nRunning validations...")
     # Initial validations
     validate(campaign_data)
 
+    print("\nUploading campaign...")
     # Get existing or create a new campaign
-    create_campaign(campaign_data, account)
-
+    campaign_id = create_campaign(campaign_data, account)
+    print('Campaign uploaded!')
+    # Create Ad set
+    print("\nUploading AdSet...")
+    create_ad_set(campaign_data, account, campaign_id)
+    print('Ad set uploaded!')
 
 
 def main():
