@@ -14,10 +14,12 @@ from facebookads.adobjects.campaign import Campaign
 
 session = FacebookSession(conf.MY_APP_ID, conf.MY_APP_SECRET, conf.MY_ACCESS_TOKEN)
 api = FacebookAdsApi(session)
+ACCOUNT = 'act_' + conf.AD_ACCOUNT_ID
+FacebookAdsApi.set_default_api(api)
 
 def get_image_files():
     """Returns a list of paths of all the images in the current directory
-    
+
     Returns:
         list: absolute paths of images in current directory
     """
@@ -26,36 +28,96 @@ def get_image_files():
     image_paths = [os.path.join(current_dir, img) for img in images]
     return image_paths
 
+example_dict = {
+    'daily_budget': 500,  # 5.00 per day
+    'lifetime_budget': '',
+    'end_time': '',
+    'campaign_id': '',
+    'campaign_name': 'Test Campaign 02',
+    'objective': 'link_clicks',
+    # 'status': '',
+}
+
+
+def validate(campaign_data):
+    """Performs validations on campaign_data and raises TyperError if something
+    fails
+
+    Args:
+        campaign_data (dict): A dict with campaign data, parsed from JSON
+
+    Raises:
+        TypeError: Explanation as to which validation failed
+    """
+    if not campaign_data.get('daily_budget'):
+        if not campaign_data.get('lifetime_budget'):
+            raise TypeError(
+            'Either daily_budget or lifetime_budget must be defined'
+            )
+        elif not campaign_data.get('end_time'):
+            raise TypeError(
+            'When using lifetime_budget, end_time must be defined'
+            )
+
+
+def create_campaign(campaign_data, account):
+    """Creates a campaign, by default in paused status
+
+    Args:
+        campaign_data (dict): A dict with campaign data, parsed from JSON
+        account (str): Account where to upload the campaign
+
+    Returns:
+        object: Campaign object?
+    """
+    # Existing campaing can be defined via campaign_id (or maybe name, not sure yet)
+    if campaign_data.get('campaign_id'):
+        campaign = Campaign(fbid=campaign_data.get('campaign_id'))[Campaign.Field.id]
+    else:
+        campaign = Campaign(parent_id=account)
+        campaign[Campaign.Field.name] = campaign_data.get('campaign_name')
+        campaign[Campaign.Field.objective] = getattr(Campaign.Objective,
+                                                     campaign_data.get('objective'))
+        # If not status is given, then default to Paused
+        campaign[Campaign.Field.status] = getattr(Campaign.Status,
+                                                  campaign_data.get('status', 'paused'))
+        campaign.remote_create()
+
+        # ??? What and why?
+        campaign = campaign[AdSet.Field.id]
+
+    return campaign
+
+def test_campaign_upload(campaign_data, account):
+    """
+    Args:
+        campaign_data (dict): parameters parsed from Json
+        account (str): Account where to upload the campaing
+
+    Returns:
+        TYPE: Description
+    """
+    # Check if we're working with the correct account
+    active_account = AdAccount(account)
+    active_account.remote_read(fields=[AdAccount.Field.name])
+
+    print('Uploading a campaign to %s' % active_account[AdAccount.Field.name])
+
+    confirm = input('Do you want to continue? Y/N  --> ')
+    if confirm not in ('y', 'Y'):
+        print('Aborted campaign upload')
+        return
+
+    # Initial validations
+    validate(campaign_data)
+
+    # Get existing or create a new campaign
+    create_campaign(campaign_data, account)
+
+
 
 def main():
-    pass
-
-def stuff():
-
-
-def create_campaign_test():
-    """Testing out campaign creation
-    """
-    FacebookAdsApi.set_default_api(api)
-    account = AdAccount('act_' + conf.AD_ACCOUNT_ID)
-    # account_2 = AdAccount.get_my_account() # > First account associated with the user    
-    # print(my_account)
-    adsets = account.get_ad_sets(fields=[AdSet.Field.name])
-    account.remote_read(fields=[AdAccount.Field.name])
-
-    x = account.get_campaigns(fields=[Campaign.Field.name, Campaign.Field.status])
-
-    campaign = Campaign(parent_id='act_' + conf.AD_ACCOUNT_ID)
-    campaign.update({
-        Campaign.Field.name: 'My Campaign',
-        Campaign.Field.objective: Campaign.Objective.link_clicks,
-    })
-
-    campaign.remote_create(params={
-        'status': Campaign.Status.paused,
-    })
-
-
+    test_campaign_upload(example_dict, ACCOUNT)
 
 if __name__ == '__main__':
     main()

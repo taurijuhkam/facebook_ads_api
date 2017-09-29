@@ -1,1 +1,1 @@
-facebookads
+facebookads==2.10.1
