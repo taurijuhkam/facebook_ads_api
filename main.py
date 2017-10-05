@@ -64,6 +64,7 @@ def validate(campaign_data):
             'Ad set name cannot be empty!'
             )
 
+
 def create_campaign(campaign_data, account):
     """Creates a campaign, by default in paused status
 
@@ -78,7 +79,7 @@ def create_campaign(campaign_data, account):
     if campaign_data.get('campaign_id'):
         campaign = Campaign(fbid=campaign_data.get('campaign_id'))[Campaign.Field.id]
     else:
-        campaign = Campaign(parent_id=account)
+
         campaign[Campaign.Field.name] = campaign_data.get('campaign_name')
         campaign[Campaign.Field.objective] = getattr(Campaign.Objective,
                                                      campaign_data.get('objective'))
@@ -91,6 +92,7 @@ def create_campaign(campaign_data, account):
         campaign_id = campaign[AdSet.Field.id]
 
     return campaign_id
+
 
 def create_ad_set(campaign_data, account, campaign_id):
     """Creates an ad set and targeting for the campaign.
@@ -130,7 +132,7 @@ def create_ad_set(campaign_data, account, campaign_id):
     if campaign_data.get('min_age'):
         targeting[Targeting.Field.age_min] = campaign_data.get('min_age')
 
-    #TODO: Language, region, Placements?
+    # TODO: Language, region, Placements?
     #
 
     # Attach targeting to Ad set
@@ -174,7 +176,19 @@ def test_campaign_upload(campaign_data, account):
 
 
 def main():
-    test_campaign_upload(example_dict, ACCOUNT)
+    read_campaign()
+    # test_campaign_upload(example_dict, ACCOUNT)
+
+def read_campaign():
+    # account = AdAccount(ACCOUNT)
+    account = AdAccount.get_my_account() # > First account associated with the user    
+    print(account)
+    adsets = account.get_ad_sets(fields=[AdSet.Field.targeting, AdSet.Field.name])
+    account.remote_read(fields=[AdAccount.Field.name])
+    print(adsets)
+
+    # x =  account.get_campaigns(fields=[Campaign.Field.name, Campaign.Field.status])
+    # print(x)
 
 if __name__ == '__main__':
     main()
